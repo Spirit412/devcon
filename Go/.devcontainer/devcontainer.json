@@ -3,9 +3,13 @@
     "dockerComposeFile": [
         "docker-compose.yml"
     ],
-    "service": "vscode",
+    "service": "app",
     "runServices": [
-        "vscode"
+        "app",
+        "pgsql",
+        // "redis",
+        // "rabbitmq"
+
     ],
     "shutdownAction": "stopCompose",
     "postCreateCommand": "~/.windows.sh && go mod download && go mod tidy",

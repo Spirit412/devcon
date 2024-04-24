@@ -1,10 +1,15 @@
 version: "3.7"
 
 services:
-  vscode:
-    build: .
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+        - .env
+    working_dir: /workspace
     volumes:
-      - ../:/workspace
+      - ../:/workspace:cached
       # Docker socket to access Docker server
       - /var/run/docker.sock:/var/run/docker.sock
       # SSH directory for Linux, OSX and WSL
@@ -15,9 +20,9 @@ services:
       # Shell history persistence
       - ~/.zsh_history:/root/.zsh_history
       # Git config
-      - ~/.gitconfig:/root/.gitconfig
+      # - ~/.gitconfig:/root/.gitconfig
     environment:
-      - TZ=
+      - TZ=Europe/Moscow
     cap_add:
       # For debugging with dlv
       - SYS_PTRACE
@@ -25,3 +30,63 @@ services:
       # For debugging with dlv
       - seccomp:unconfined
     entrypoint: [ "zsh", "-c", "while sleep 1000; do :; done" ]
+    networks:
+      - dev-network
+
+  pgsql:
+    container_name: postgres14
+    image: 'postgres:14'
+    restart: unless-stopped
+    env_file:
+        - .env
+    ports:
+        - '${POSTGRES_FW_PORT:-5432}:5432'
+    environment:
+        POSTGRES_DB: ${POSTGRES_DB:-postgres}
+        POSTGRES_USER: ${POSTGRES_USER:-postgres}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+        - 'psql-data:/tmp/dev/pgsql/data'
+    networks:
+      - dev-network
+
+  redis:
+    container_name: redis
+    restart: always
+    image: bitnami/redis:6.2.5
+    env_file:
+        - .env
+    ports:
+      - '${REDIS_FW_PORT:-6379}:6379'
+    environment:
+      ALLOW_EMPTY_PASSWORD: "yes"
+    healthcheck:
+      test: redis-cli ping
+      interval: 1s
+      timeout: 15s
+      retries: 10
+    networks:
+      - dev-network
+
+  rabbitmq:
+    image: rabbitmq:3.11-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - dev-network
+
+
+volumes:
+  psql-data:
+
+networks:
+  dev-network:
